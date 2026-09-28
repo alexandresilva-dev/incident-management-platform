@@ -12,8 +12,11 @@ DbSession = Annotated[Session, Depends(get_db)]
 ModelT = TypeVar("ModelT", bound=Base)
 
 
-def get_or_404(db: Session, model: type[ModelT], object_id: int) -> ModelT:
-    obj = db.get(model, object_id)
+def get_or_404(
+    db: Session, model: type[ModelT], object_id: int, *, for_update: bool = False
+) -> ModelT:
+    """Devolve o objeto ou 404. `for_update` bloqueia a linha até ao fim da transação."""
+    obj = db.get(model, object_id, with_for_update=for_update)
     if obj is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import TypeVar
 
 from sqlalchemy import select
@@ -9,6 +10,7 @@ from app.models import Asset, Incident, IncidentStatusHistory, Vulnerability
 from app.models.enums import IncidentStatus
 from app.schemas.incident import IncidentCreate, IncidentUpdate
 from app.services.errors import UnknownReferenceError
+from app.services.workflow import validate_transition
 
 ModelT = TypeVar("ModelT", bound=Base)
 
@@ -63,6 +65,40 @@ def update_incident(db: Session, incident: Incident, payload: IncidentUpdate) ->
     for field, value in changes.items():
         setattr(incident, field, value)
 
+    db.commit()
+    db.refresh(incident)
+    return incident
+
+
+def transition_incident(
+    db: Session,
+    incident: Incident,
+    target: IncidentStatus,
+    comment: str | None = None,
+    actor: str | None = None,
+) -> Incident:
+    """Move o incidente para `target` se o workflow o permitir, e regista o audit trail.
+
+    O chamador deve ter carregado o incidente com FOR UPDATE, para que dois
+    pedidos simultâneos não validem contra o mesmo estado antigo.
+    """
+    previous = incident.status
+    validate_transition(previous, target)  # levanta InvalidTransitionError
+
+    now = datetime.now(UTC)
+    incident.status = target
+    if target == IncidentStatus.resolved:
+        incident.resolved_at = now
+    elif target == IncidentStatus.closed:
+        incident.closed_at = now
+    elif previous == IncidentStatus.resolved:
+        incident.resolved_at = None  # reabertura: deixou de estar resolvido
+
+    incident.history.append(
+        IncidentStatusHistory(
+            from_status=previous, to_status=target, changed_by=actor, comment=comment
+        )
+    )
     db.commit()
     db.refresh(incident)
     return incident
