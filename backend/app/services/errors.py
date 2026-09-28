@@ -14,3 +14,16 @@ class UnknownReferenceError(DomainError):
         self.missing_ids = missing_ids
         ids = ", ".join(str(i) for i in missing_ids)
         super().__init__(f"Unknown {kind} id(s): {ids}")
+
+
+class InvalidTransitionError(DomainError):
+    """A transição de estado pedida não é permitida pelo workflow."""
+
+    def __init__(self, current: str, target: str, allowed: list[str]) -> None:
+        self.current = current
+        self.target = target
+        self.allowed = allowed
+        options = ", ".join(allowed) if allowed else "none (terminal state)"
+        super().__init__(
+            f"Cannot move incident from '{current}' to '{target}'. Allowed: {options}"
+        )
