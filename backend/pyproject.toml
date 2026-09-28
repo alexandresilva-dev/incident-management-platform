@@ -4,3 +4,14 @@
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# As migrações são geradas pelo Alembic; não se reformatam nem se lintam.
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+# E/F: erros e pyflakes · I: imports ordenados · B: bugs comuns (bugbear)
+# UP: sintaxe moderna de Python · SIM: simplificações
+select = ["E", "F", "I", "B", "UP", "SIM"]
