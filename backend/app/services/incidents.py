@@ -9,7 +9,7 @@ from app.db.base import Base
 from app.models import Asset, Incident, IncidentStatusHistory, Vulnerability
 from app.models.enums import IncidentStatus
 from app.schemas.incident import IncidentCreate, IncidentUpdate
-from app.services.errors import UnknownReferenceError
+from app.services.errors import IncidentClosedError, UnknownReferenceError
 from app.services.workflow import validate_transition
 
 ModelT = TypeVar("ModelT", bound=Base)
@@ -53,6 +53,9 @@ def create_incident(db: Session, payload: IncidentCreate, actor: str | None = No
 
 
 def update_incident(db: Session, incident: Incident, payload: IncidentUpdate) -> Incident:
+    if incident.status == IncidentStatus.closed:
+        raise IncidentClosedError(incident.id)
+
     changes = payload.model_dump(exclude_unset=True)
 
     # Resolver as referências antes de alterar seja o que for: se falhar, nada muda.

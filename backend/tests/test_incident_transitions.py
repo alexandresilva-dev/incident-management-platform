@@ -144,3 +144,26 @@ def test_new_incident_history_has_creation_entry(client: TestClient) -> None:
     assert trail[0]["from_status"] is None
     assert trail[0]["to_status"] == "open"
     assert trail[0]["comment"] == "Incident created"
+
+
+def test_closed_incident_cannot_be_modified(client: TestClient) -> None:
+    incident = make_incident(client, title="original")
+    iid = incident["id"]
+    for target in ("investigating", "mitigated", "resolved", "closed"):
+        transition(client, iid, target)
+
+    response = client.patch(f"/incidents/{iid}", json={"title": "tampered", "severity": "low"})
+
+    assert response.status_code == 409
+    assert "closed" in response.json()["detail"]
+    unchanged = client.get(f"/incidents/{iid}").json()
+    assert unchanged["title"] == "original"
+    assert unchanged["severity"] == "critical"
+
+
+def test_incident_can_still_be_modified_before_closing(client: TestClient) -> None:
+    iid = make_incident(client)["id"]
+    for target in ("investigating", "mitigated", "resolved"):
+        transition(client, iid, target)
+
+    assert client.patch(f"/incidents/{iid}", json={"title": "updated"}).status_code == 200
