@@ -15,8 +15,9 @@ Full-stack platform to manage the complete incident lifecycle, applying ITIL inc
 - [x] REST API with generated OpenAPI documentation
 - [x] Relational data model with versioned migrations (PostgreSQL + Alembic)
 - [x] React front end (dashboard, incident list, detail and creation)
-- [x] JWT authentication; the audit trail records who made each change
-- [x] CI on every push (lint, migrations, tests, builds)
+- [x] JWT authentication with role-based access control (analyst / admin); the audit trail records who made each change
+- [x] Brute-force protection on login (per account and per IP)
+- [x] CI on every push (lint, migrations, tests, builds) plus dependency audit, Dependabot and CodeQL
 
 ## Tech stack
 
@@ -85,11 +86,14 @@ docker compose exec api python -m scripts.seed
 
 Open <http://localhost:5173> and sign in with the demo user. Those credentials come from `.env.example` and are for **local demos only**.
 
-There is no public sign-up. Create real users from the command line (the password is prompted, so it never appears in your shell history):
+There is no public sign-up. Users are created by administrators, either through the API (`POST /users`) or from the command line (the password is prompted, so it never appears in your shell history):
 
 ```bash
-docker compose exec api python -m scripts.create_user ana@company.com "Ana Silva"
+docker compose exec api python -m scripts.create_user --admin boss@company.com "Boss"   # first admin
+docker compose exec api python -m scripts.create_user ana@company.com "Ana Silva"       # analyst
 ```
+
+The demo user is an **admin**. Roles: an `analyst` works on incidents, assets and vulnerabilities; an `admin` can also delete assets and vulnerabilities and manage users.
 
 | Service | URL |
 |---------|-----|
@@ -118,10 +122,11 @@ The same checks run in GitHub Actions on every push (see `.github/workflows/ci.y
 | Resource | Endpoints |
 |----------|-----------|
 | Incidents | `GET/POST /incidents` · `GET/PATCH /incidents/{id}` · `POST /incidents/{id}/transitions` · `GET /incidents/{id}/history` |
-| Assets | `GET/POST /assets` · `GET/PATCH/DELETE /assets/{id}` |
-| Vulnerabilities | `GET/POST /vulnerabilities` · `GET/PATCH/DELETE /vulnerabilities/{id}` |
+| Assets | `GET/POST /assets` · `GET/PATCH /assets/{id}` · `DELETE /assets/{id}` (admin) |
+| Vulnerabilities | `GET/POST /vulnerabilities` · `GET/PATCH /vulnerabilities/{id}` · `DELETE /vulnerabilities/{id}` (admin) |
 | Dashboard | `GET /dashboard/summary` |
 | Auth | `POST /auth/login` · `GET /auth/me` |
+| Users (admin only) | `GET/POST /users` · `PATCH /users/{id}` |
 | Health | `GET /health` (public) |
 
 All endpoints except `/health` and `/auth/login` require `Authorization: Bearer <token>`. Lists support filtering and `skip`/`limit` pagination; incidents can also be sorted by priority. The full, interactive reference is at `/docs`.
@@ -131,17 +136,20 @@ All endpoints except `/health` and `/auth/login` require `Authorization: Bearer 
 Implemented:
 
 - Passwords are hashed with **bcrypt** (salted); passwords over bcrypt's 72-byte limit are rejected rather than silently truncated, and a minimum length of 12 is enforced.
+- **Brute-force protection.** After 5 failed logins for the same email (or 20 from the same IP) within 15 minutes, `/auth/login` answers `429` with a `Retry-After` header, even if the password is then correct. The limit applies to the *submitted* email whether or not the account exists, so it does not reveal which accounts exist. Attempts are stored in the database, so they survive restarts and work across processes, and they double as an authentication audit log.
 - Login answers identically for a wrong password and an unknown email, and does the same amount of hashing work in both cases, so neither the message nor the timing reveals which emails exist.
 - **JWT** access tokens with an expiry; the accepted algorithm is pinned and `exp`/`sub` are required (tests cover expired, tampered, wrongly signed and `alg: none` tokens). A deactivated or deleted user loses access even with an unexpired token.
-- No public registration; users are created by an administrator script.
-- CORS is an explicit allow-list (never `*`), containers run as unprivileged users, and GitHub Actions use minimal permissions with actions pinned by commit SHA.
+- **Role-based access control.** The role is read from the database on every request (not embedded in the token), so a promotion, demotion or deactivation takes effect immediately. Authorization is answered before existence (`403` before `404`) so analysts cannot probe which ids exist, and the last active administrator cannot be demoted or deactivated.
+- No public registration; users are created by administrators.
+- **Supply chain.** GitHub Actions use minimal permissions and are pinned by commit SHA; `pip-audit` and `npm audit` run on every push and weekly; Dependabot opens update pull requests; CodeQL scans the Python and TypeScript code.
+- CORS is an explicit allow-list (never `*`) and the containers run as unprivileged users.
 
 Known limitations (deliberately out of scope, and what I would do next):
 
-- No rate limiting or lockout on `/auth/login` (add e.g. per-IP/per-account throttling).
-- No refresh tokens or server-side token revocation; tokens are valid until they expire.
+- No refresh tokens or server-side token revocation; tokens are valid until they expire (a deactivated user is still cut off immediately).
 - The token is kept in `localStorage`, which is exposed to XSS; `HttpOnly` cookies would be more robust but need a CSRF strategy.
-- A single user role: every authenticated user can do everything (add role-based access control).
+- No multi-factor authentication and no endpoint for users to change their own password.
+- Login throttling keys on the connection's IP address. Behind a reverse proxy that would be the proxy's address, so a real deployment must be configured to trust a proxy-supplied client IP (not done by default because `X-Forwarded-For` can be forged).
 - The Docker setup is for development (hot reload, published ports); a production deployment would need TLS termination and a production front-end image.
 
 ## Project structure
@@ -152,7 +160,7 @@ backend/
     api/        HTTP layer: routers, request/response handling, error mapping
     schemas/    Pydantic models: what the API accepts and returns
     models/     SQLAlchemy models: what is stored in the database
-    services/   Business logic (workflow, prioritisation, CVSS bands, dashboard)
+    services/   Business logic (workflow, prioritisation, CVSS bands, users, login throttling)
     db/         Engine, session and declarative base
     security.py Password hashing and JWT helpers
     config.py   Settings loaded from environment variables
@@ -165,7 +173,7 @@ frontend/
     pages/      Dashboard, incident list / detail / creation
     auth/       Session handling (token storage, context)
     components/ Layout, route guard, badges, charts
-.github/workflows/  CI pipeline
+.github/        CI, dependency audit, CodeQL and Dependabot
 docker-compose.yml
 ```
 
