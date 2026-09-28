@@ -1,3 +1,4 @@
+import { clearToken, getToken } from '../auth/tokenStorage.ts'
 import type {
   Asset,
   DashboardSummary,
@@ -8,6 +9,8 @@ import type {
   IncidentSummary,
   IncidentUpdate,
   StatusHistoryEntry,
+  Token,
+  User,
   Vulnerability,
 } from './types.ts'
 
@@ -50,18 +53,39 @@ export function toQuery(params: object): string {
   return query ? `?${query}` : ''
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+let unauthorizedHandler: (() => void) | undefined
+
+/** Chamado quando a API responde 401 a um pedido autenticado (token expirado/inválido). */
+export function setUnauthorizedHandler(handler: (() => void) | undefined): void {
+  unauthorizedHandler = handler
+}
+
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  { handleUnauthorized = true } = {},
+): Promise<T> {
+  const token = getToken()
   let response: Response
   try {
     response = await fetch(`${API_URL}${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...init.headers },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init.headers,
+      },
     })
   } catch {
     throw new ApiError(0, 'Cannot reach the API. Is the backend running?')
   }
 
   if (!response.ok) {
+    if (response.status === 401 && handleUnauthorized) {
+      // Sessão inválida: esquece o token e avisa a app (que mostra o login).
+      clearToken()
+      unauthorizedHandler?.()
+    }
     const body: unknown = await response.json().catch(() => undefined)
     const detail =
       body && typeof body === 'object' && 'detail' in body ? body.detail : response.statusText
@@ -74,6 +98,20 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 const jsonBody = (data: unknown): RequestInit => ({ body: JSON.stringify(data) })
 
 export const api = {
+  // O login segue o standard OAuth2 do FastAPI: formulário com "username" (o email) e
+  // "password". Um 401 aqui é "credenciais erradas", não "sessão expirada".
+  login: (email: string, password: string) =>
+    request<Token>(
+      '/auth/login',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ username: email, password }),
+      },
+      { handleUnauthorized: false },
+    ),
+  me: () => request<User>('/auth/me'),
+
   getDashboardSummary: () => request<DashboardSummary>('/dashboard/summary'),
 
   listIncidents: (filters: IncidentFilters = {}) =>
