@@ -91,7 +91,9 @@ def test_get_vulnerability_and_404(client: TestClient) -> None:
 
 def test_list_vulnerabilities_filters(client: TestClient) -> None:
     asset = make_asset(client)
-    make_vulnerability(client, title="a", severity="critical", cve_id="CVE-2024-0001", asset_id=asset["id"])
+    make_vulnerability(
+        client, title="a", severity="critical", cve_id="CVE-2024-0001", asset_id=asset["id"]
+    )
     make_vulnerability(client, title="b", severity="low", status="patched")
     make_vulnerability(client, title="c", severity="critical")
 

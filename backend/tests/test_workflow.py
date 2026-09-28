@@ -28,7 +28,9 @@ def test_valid_transitions_are_accepted(current: IncidentStatus, target: Inciden
     ("current", "target"),
     [pair for pair in itertools.product(S, S) if pair not in VALID],
 )
-def test_every_other_transition_is_rejected(current: IncidentStatus, target: IncidentStatus) -> None:
+def test_every_other_transition_is_rejected(
+    current: IncidentStatus, target: IncidentStatus
+) -> None:
     with pytest.raises(InvalidTransitionError):
         validate_transition(current, target)
 

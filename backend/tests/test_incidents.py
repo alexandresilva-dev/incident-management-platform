@@ -129,7 +129,10 @@ def test_list_filters(client: TestClient) -> None:
     asset = make_asset(client)
     make_incident(client, title="Phishing wave", category="phishing", severity="medium")
     make_incident(
-        client, title="Ransomware on file server", category="malware", severity="critical",
+        client,
+        title="Ransomware on file server",
+        category="malware",
+        severity="critical",
         asset_ids=[asset["id"]],
     )
     make_incident(client, title="Misconfigured bucket", category="misconfiguration", severity="low")
@@ -141,7 +144,11 @@ def test_list_filters(client: TestClient) -> None:
 
     assert titles(severity="critical") == ["Ransomware on file server"]
     assert titles(category="phishing") == ["Phishing wave"]
-    assert titles(status="open") == ["Misconfigured bucket", "Ransomware on file server", "Phishing wave"]
+    assert titles(status="open") == [
+        "Misconfigured bucket",
+        "Ransomware on file server",
+        "Phishing wave",
+    ]
     assert titles(status="closed") == []
     assert titles(asset_id=asset["id"]) == ["Ransomware on file server"]
     assert titles(q="RANSOM") == ["Ransomware on file server"]

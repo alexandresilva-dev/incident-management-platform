@@ -37,7 +37,9 @@ def list_incidents(
     severity: Severity | None = None,
     priority: Priority | None = None,
     category: IncidentCategory | None = None,
-    asset_id: Annotated[int | None, Query(description="Only incidents affecting this asset")] = None,
+    asset_id: Annotated[
+        int | None, Query(description="Only incidents affecting this asset")
+    ] = None,
     q: Annotated[str | None, Query(description="Case-insensitive search in the title")] = None,
     sort: IncidentSort = IncidentSort.newest,
     skip: Annotated[int, Query(ge=0)] = 0,
