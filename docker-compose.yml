@@ -31,5 +31,20 @@ services:
       db:
         condition: service_healthy
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      # Volume anónimo: os node_modules do contentor (Linux) não são tapados pelos
+      # do Mac (binários diferentes). Após mudar dependências:
+      #   docker compose up --build --renew-anon-volumes
+      - /app/node_modules
+    depends_on:
+      - api
+
 volumes:
   postgres_data:

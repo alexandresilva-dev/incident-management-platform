@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     postgres_host: str = "db"
     postgres_port: int = 5432
 
+    # Origens (separadas por vírgula) autorizadas a chamar a API a partir de um browser.
+    cors_origins: str = "http://localhost:5173"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
     @property
     def database_url(self) -> URL:
         # URL.create escapa caracteres especiais da password, ao contrário
