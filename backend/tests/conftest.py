@@ -15,8 +15,13 @@ from app.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.models import User
+from app.security import hash_password
 
 TEST_DB_NAME = f"{settings.postgres_db}_test"
+
+TEST_USER_EMAIL = "tester@example.com"
+TEST_USER_PASSWORD = "test-password-123456"
 
 
 def _ensure_test_database() -> None:
@@ -61,8 +66,24 @@ def db(engine: Engine) -> Iterator[Session]:
     connection.close()
 
 
+@pytest.fixture(scope="session")
+def test_password_hash() -> str:
+    # O bcrypt é lento de propósito (~0.2 s): calcula-se uma vez por sessão de testes.
+    return hash_password(TEST_USER_PASSWORD)
+
+
 @pytest.fixture
-def client(db: Session) -> Iterator[TestClient]:
+def test_user(db: Session, test_password_hash: str) -> User:
+    user = User(email=TEST_USER_EMAIL, full_name="Test User", hashed_password=test_password_hash)
+    db.add(user)
+    db.commit()
+    return user
+
+
+@pytest.fixture
+def anonymous_client(db: Session) -> Iterator[TestClient]:
+    """Cliente sem credenciais."""
+
     def override_get_db() -> Iterator[Session]:
         yield db
 
@@ -70,3 +91,8 @@ def client(db: Session) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(anonymous_client: TestClient) -> TestClient:
+    return anonymous_client
