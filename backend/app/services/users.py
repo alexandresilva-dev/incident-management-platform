@@ -2,6 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import User
+from app.models.enums import UserRole
 from app.security import hash_password, verify_password
 
 MIN_PASSWORD_LENGTH = 12
@@ -15,14 +16,25 @@ def get_user_by_email(db: Session, email: str) -> User | None:
     return db.scalar(select(User).where(User.email == normalise_email(email)))
 
 
-def create_user(db: Session, email: str, full_name: str, password: str) -> User:
+def create_user(
+    db: Session,
+    email: str,
+    full_name: str,
+    password: str,
+    role: UserRole = UserRole.analyst,
+) -> User:
     if len(password) < MIN_PASSWORD_LENGTH:
         raise ValueError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters long")
     email = normalise_email(email)
     if get_user_by_email(db, email) is not None:
         raise ValueError(f"A user with email {email} already exists")
 
-    user = User(email=email, full_name=full_name.strip(), hashed_password=hash_password(password))
+    user = User(
+        email=email,
+        full_name=full_name.strip(),
+        hashed_password=hash_password(password),
+        role=role,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)

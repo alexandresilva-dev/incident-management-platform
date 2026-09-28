@@ -63,3 +63,10 @@ class Priority(StrEnum):
     P2 = "P2"
     P3 = "P3"
     P4 = "P4"
+
+
+class UserRole(StrEnum):
+    """analyst: trabalha nos incidentes. admin: além disso apaga dados e gere utilizadores."""
+
+    analyst = "analyst"
+    admin = "admin"

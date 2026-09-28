@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr
 
+from app.models.enums import UserRole
+
 
 class UserRead(BaseModel):
     """O que a API mostra de um utilizador. Nunca inclui o hash da password."""
@@ -11,6 +13,7 @@ class UserRead(BaseModel):
     id: int
     email: EmailStr
     full_name: str
+    role: UserRole
     is_active: bool
     created_at: datetime
 

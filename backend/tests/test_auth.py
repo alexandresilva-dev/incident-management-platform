@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import User
+from app.models.enums import UserRole
 from app.security import ALGORITHM, create_access_token, verify_password
 from app.services.users import MIN_PASSWORD_LENGTH, authenticate, create_user
 from tests.conftest import TEST_USER_EMAIL, TEST_USER_PASSWORD
@@ -154,3 +155,19 @@ def test_authenticate(db: Session, test_user: User):
     assert authenticate(db, TEST_USER_EMAIL, TEST_USER_PASSWORD) is not None
     assert authenticate(db, TEST_USER_EMAIL, "wrong-password-value") is None
     assert authenticate(db, "nobody@example.com", TEST_USER_PASSWORD) is None
+
+
+# --- roles ---------------------------------------------------------------------
+
+
+def test_new_users_are_analysts_unless_told_otherwise(db: Session) -> None:
+    analyst = create_user(db, "a@example.com", "A", "a-long-enough-password")
+    admin = create_user(db, "b@example.com", "B", "a-long-enough-password", role=UserRole.admin)
+
+    assert analyst.role == UserRole.analyst
+    assert admin.role == UserRole.admin
+
+
+def test_me_reports_the_role(client: TestClient, analyst_client: TestClient) -> None:
+    assert client.get("/auth/me").json()["role"] == "admin"
+    assert analyst_client.get("/auth/me").json()["role"] == "analyst"
