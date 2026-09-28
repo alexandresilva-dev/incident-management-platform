@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router'
 import { useAuth } from '../auth/useAuth.ts'
+import { humanize } from '../lib/format.ts'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -15,6 +16,7 @@ export default function Layout() {
           </nav>
           <div className="topbar__user">
             <span className="muted" title={user?.email}>{user?.full_name}</span>
+            {user && <span className="badge">{humanize(user.role)}</span>}
             <button className="btn btn--small" onClick={logout}>Sign out</button>
           </div>
         </div>
