@@ -1,5 +1,6 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { BrowserRouter, Route, Routes } from 'react-router'
 import Layout from './components/Layout.tsx'
+import DashboardPage from './pages/DashboardPage.tsx'
 import IncidentDetailPage from './pages/IncidentDetailPage.tsx'
 import IncidentsPage from './pages/IncidentsPage.tsx'
 import NewIncidentPage from './pages/NewIncidentPage.tsx'
@@ -9,7 +10,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={<Navigate to="/incidents" replace />} />
+          <Route index element={<DashboardPage />} />
           <Route path="incidents" element={<IncidentsPage />} />
           <Route path="incidents/new" element={<NewIncidentPage />} />
           <Route path="incidents/:id" element={<IncidentDetailPage />} />

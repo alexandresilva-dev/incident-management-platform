@@ -121,8 +121,8 @@ export interface DashboardSummary {
     total: number
     active: number
     by_status: Record<IncidentStatus, number>
-    by_severity: Record<Severity, number>
-    by_priority: Record<Priority, number>
+    active_by_severity: Record<Severity, number>
+    active_by_priority: Record<Priority, number>
   }
   assets: { total: number; by_criticality: Record<Criticality, number> }
   vulnerabilities: {

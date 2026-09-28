@@ -7,6 +7,7 @@ export default function Layout() {
         <div className="container topbar__inner">
           <span className="brand">Incident Management</span>
           <nav className="nav">
+            <NavLink to="/" end>Dashboard</NavLink>
             <NavLink to="/incidents">Incidents</NavLink>
           </nav>
         </div>
