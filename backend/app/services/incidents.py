@@ -1,4 +1,5 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
+from datetime import UTC, datetime
 from typing import TypeVar
 
 from sqlalchemy import select
@@ -8,7 +9,9 @@ from app.db.base import Base
 from app.models import Asset, Incident, IncidentStatusHistory, Vulnerability
 from app.models.enums import IncidentStatus
 from app.schemas.incident import IncidentCreate, IncidentUpdate
-from app.services.errors import UnknownReferenceError
+from app.services.errors import IncidentClosedError, UnknownReferenceError
+from app.services.prioritization import calculate_priority
+from app.services.workflow import validate_transition
 
 ModelT = TypeVar("ModelT", bound=Base)
 
@@ -25,6 +28,21 @@ def _load_all(db: Session, model: type[ModelT], ids: Sequence[int], kind: str) -
     return [found[i] for i in unique_ids]
 
 
+def recalculate_priority(incident: Incident) -> None:
+    """A prioridade guarda-se (para ordenar/filtrar em SQL) mas tem de acompanhar
+    a severidade e a criticidade dos ativos afetados."""
+    incident.priority = calculate_priority(
+        incident.severity, [asset.criticality for asset in incident.assets]
+    )
+
+
+def reprioritise_open_incidents(incidents: Iterable[Incident]) -> None:
+    """Recalcula os incidentes ainda abertos; os fechados são registos finais."""
+    for incident in incidents:
+        if incident.status != IncidentStatus.closed:
+            recalculate_priority(incident)
+
+
 def create_incident(db: Session, payload: IncidentCreate, actor: str | None = None) -> Incident:
     incident = Incident(
         title=payload.title,
@@ -35,6 +53,7 @@ def create_incident(db: Session, payload: IncidentCreate, actor: str | None = No
         assets=_load_all(db, Asset, payload.asset_ids, "asset"),
         vulnerabilities=_load_all(db, Vulnerability, payload.vulnerability_ids, "vulnerability"),
     )
+    recalculate_priority(incident)
     # Todo o incidente nasce com um registo de audit trail (sem estado anterior).
     incident.history.append(
         IncidentStatusHistory(
@@ -51,6 +70,9 @@ def create_incident(db: Session, payload: IncidentCreate, actor: str | None = No
 
 
 def update_incident(db: Session, incident: Incident, payload: IncidentUpdate) -> Incident:
+    if incident.status == IncidentStatus.closed:
+        raise IncidentClosedError(incident.id)
+
     changes = payload.model_dump(exclude_unset=True)
 
     # Resolver as referências antes de alterar seja o que for: se falhar, nada muda.
@@ -62,7 +84,42 @@ def update_incident(db: Session, incident: Incident, payload: IncidentUpdate) ->
         )
     for field, value in changes.items():
         setattr(incident, field, value)
+    recalculate_priority(incident)
 
+    db.commit()
+    db.refresh(incident)
+    return incident
+
+
+def transition_incident(
+    db: Session,
+    incident: Incident,
+    target: IncidentStatus,
+    comment: str | None = None,
+    actor: str | None = None,
+) -> Incident:
+    """Move o incidente para `target` se o workflow o permitir, e regista o audit trail.
+
+    O chamador deve ter carregado o incidente com FOR UPDATE, para que dois
+    pedidos simultâneos não validem contra o mesmo estado antigo.
+    """
+    previous = incident.status
+    validate_transition(previous, target)  # levanta InvalidTransitionError
+
+    now = datetime.now(UTC)
+    incident.status = target
+    if target == IncidentStatus.resolved:
+        incident.resolved_at = now
+    elif target == IncidentStatus.closed:
+        incident.closed_at = now
+    elif previous == IncidentStatus.resolved:
+        incident.resolved_at = None  # reabertura: deixou de estar resolvido
+
+    incident.history.append(
+        IncidentStatusHistory(
+            from_status=previous, to_status=target, changed_by=actor, comment=comment
+        )
+    )
     db.commit()
     db.refresh(incident)
     return incident

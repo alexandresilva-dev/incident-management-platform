@@ -1,10 +1,11 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 from app.models.enums import IncidentCategory, IncidentStatus, Priority, Severity
 from app.schemas.asset import AssetRead
 from app.schemas.vulnerability import VulnerabilityRead
+from app.services.workflow import allowed_transitions
 
 _NOT_NULLABLE = ("title", "category", "severity", "asset_ids", "vulnerability_ids")
 
@@ -62,3 +63,18 @@ class IncidentSummary(BaseModel):
 class IncidentRead(IncidentSummary):
     assets: list[AssetRead]
     vulnerabilities: list[VulnerabilityRead]
+
+    @computed_field
+    @property
+    def allowed_transitions(self) -> list[IncidentStatus]:
+        """Estados para onde este incidente pode ir agora (para a UI só mostrar ações válidas)."""
+        return allowed_transitions(self.status)
+
+
+class TransitionRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    to_status: IncidentStatus
+    comment: str | None = Field(
+        default=None, max_length=2000, examples=["Malicious IP blocked at the firewall"]
+    )
