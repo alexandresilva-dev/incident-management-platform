@@ -10,6 +10,7 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 
+from app.config import settings
 from app.db.session import SessionLocal
 from app.models import Asset, Incident, Vulnerability
 from app.models.enums import (
@@ -22,6 +23,7 @@ from app.models.enums import (
 )
 from app.schemas.incident import IncidentCreate
 from app.services.incidents import create_incident, transition_incident
+from app.services.users import create_user, get_user_by_email
 
 S = IncidentStatus
 
@@ -199,6 +201,21 @@ INCIDENTS = [
 ]
 
 
+def ensure_demo_user(db) -> str | None:
+    """Cria o utilizador de demonstração (SEED_USER_* no .env) se ainda não existir.
+
+    Devolve o email, que passa a ser o autor dos registos de audit trail dos dados de demo.
+    """
+    email, password = settings.seed_user_email, settings.seed_user_password
+    if not email or not password:
+        print("SEED_USER_EMAIL / SEED_USER_PASSWORD not set: no demo user created.")
+        return None
+    if get_user_by_email(db, email) is None:
+        create_user(db, email, "Demo User", password)
+        print(f"Created demo user {email}.")
+    return email
+
+
 def main() -> None:
     with SessionLocal() as db:
         existing = db.scalar(select(func.count()).select_from(Asset)) + db.scalar(
@@ -206,6 +223,8 @@ def main() -> None:
         )
         if existing:
             raise SystemExit("Database already has data; refusing to seed. Nothing changed.")
+
+        actor = ensure_demo_user(db)
 
         assets = {}
         for name, asset_type, criticality, ip, owner in ASSETS:
@@ -242,9 +261,10 @@ def main() -> None:
                     asset_ids=[assets[n].id for n in asset_names],
                     vulnerability_ids=[vulnerabilities[k].id for k in vuln_keys],
                 ),
+                actor=actor,
             )
             for target, comment in steps:
-                transition_incident(db, incident, target, comment=comment)
+                transition_incident(db, incident, target, comment=comment, actor=actor)
 
         print(
             f"Seeded {len(ASSETS)} assets, {len(VULNERABILITIES)} vulnerabilities "
