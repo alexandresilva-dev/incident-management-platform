@@ -18,3 +18,19 @@ class Criticality(StrEnum):
     medium = "medium"
     high = "high"
     critical = "critical"
+
+
+class Severity(StrEnum):
+    """Gravidade de um incidente ou de uma vulnerabilidade."""
+
+    low = "low"
+    medium = "medium"
+    high = "high"
+    critical = "critical"
+
+
+class VulnerabilityStatus(StrEnum):
+    open = "open"
+    mitigated = "mitigated"
+    patched = "patched"
+    accepted = "accepted"  # risco aceite formalmente, sem correção
