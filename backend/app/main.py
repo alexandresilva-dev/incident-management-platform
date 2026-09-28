@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import assets, health, incidents, vulnerabilities
+from app.api import assets, dashboard, health, incidents, vulnerabilities
 from app.api.errors import register_exception_handlers
 from app.config import settings
 
@@ -22,3 +22,4 @@ app.include_router(health.router)
 app.include_router(assets.router)
 app.include_router(vulnerabilities.router)
 app.include_router(incidents.router)
+app.include_router(dashboard.router)
