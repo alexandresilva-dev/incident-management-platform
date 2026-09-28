@@ -2,6 +2,13 @@
 (o Alembic precisa disso para os ver)."""
 
 from app.models.asset import Asset
+from app.models.incident import Incident, incident_assets, incident_vulnerabilities
 from app.models.vulnerability import Vulnerability
 
-__all__ = ["Asset", "Vulnerability"]
+__all__ = [
+    "Asset",
+    "Incident",
+    "Vulnerability",
+    "incident_assets",
+    "incident_vulnerabilities",
+]
