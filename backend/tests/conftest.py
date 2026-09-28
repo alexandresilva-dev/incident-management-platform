@@ -16,12 +16,14 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models import User
+from app.models.enums import UserRole
 from app.security import create_access_token, hash_password
 
 TEST_DB_NAME = f"{settings.postgres_db}_test"
 
 TEST_USER_EMAIL = "tester@example.com"
 TEST_USER_PASSWORD = "test-password-123456"
+ANALYST_EMAIL = "analyst@example.com"
 
 
 def _ensure_test_database() -> None:
@@ -74,7 +76,26 @@ def test_password_hash() -> str:
 
 @pytest.fixture
 def test_user(db: Session, test_password_hash: str) -> User:
-    user = User(email=TEST_USER_EMAIL, full_name="Test User", hashed_password=test_password_hash)
+    """Administrador: pode tudo, por isso os testes normais usam-no (ver `client`)."""
+    user = User(
+        email=TEST_USER_EMAIL,
+        full_name="Test User",
+        hashed_password=test_password_hash,
+        role=UserRole.admin,
+    )
+    db.add(user)
+    db.commit()
+    return user
+
+
+@pytest.fixture
+def analyst_user(db: Session, test_password_hash: str) -> User:
+    user = User(
+        email=ANALYST_EMAIL,
+        full_name="Test Analyst",
+        hashed_password=test_password_hash,
+        role=UserRole.analyst,
+    )
     db.add(user)
     db.commit()
     return user
@@ -94,8 +115,18 @@ def anonymous_client(db: Session) -> Iterator[TestClient]:
 
 
 @pytest.fixture
+def analyst_client(anonymous_client: TestClient, analyst_user: User) -> TestClient:
+    """Cliente autenticado como analista (permissões limitadas).
+
+    É uma instância própria, para poder coexistir com `client` (admin) no mesmo teste.
+    """
+    token = create_access_token(str(analyst_user.id))
+    return TestClient(app, headers={"Authorization": f"Bearer {token}"})
+
+
+@pytest.fixture
 def client(anonymous_client: TestClient, test_user: User) -> TestClient:
-    """Cliente autenticado como `test_user` (o que quase todos os testes usam)."""
+    """Cliente autenticado como `test_user` (administrador; o que quase todos os testes usam)."""
     token = create_access_token(str(test_user.id))
     anonymous_client.headers["Authorization"] = f"Bearer {token}"
     return anonymous_client

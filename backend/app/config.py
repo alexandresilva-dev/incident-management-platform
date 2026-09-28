@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     secret_key: str
     access_token_expire_minutes: int = 60
 
+    # Limite de tentativas de login falhadas dentro da janela (ver services/login_throttle.py).
+    login_max_failures_per_account: int = 5
+    login_max_failures_per_ip: int = 20
+    login_lockout_window_minutes: int = 15
+
     # Só usadas por `python -m scripts.seed` para criar um utilizador de demonstração.
     seed_user_email: str | None = None
     seed_user_password: str | None = None

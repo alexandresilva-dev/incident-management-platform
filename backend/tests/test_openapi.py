@@ -66,3 +66,34 @@ def test_transition_documents_the_409_body(anonymous_client: TestClient) -> None
 def test_docs_pages_are_served(anonymous_client: TestClient) -> None:
     assert anonymous_client.get("/docs").status_code == 200
     assert anonymous_client.get("/openapi.json").status_code == 200
+
+
+ADMIN_OPERATIONS = {
+    ("delete", "/assets/{asset_id}"),
+    ("delete", "/vulnerabilities/{vulnerability_id}"),
+    ("get", "/users"),
+    ("post", "/users"),
+    ("patch", "/users/{user_id}"),
+}
+
+
+def test_admin_only_operations_document_403() -> None:
+    paths = schema()["paths"]
+    for method, path in ADMIN_OPERATIONS:
+        assert "403" in paths[path][method]["responses"], f"{method.upper()} {path}"
+
+
+def test_only_the_known_admin_operations_document_403() -> None:
+    """Se aparecer um 403 novo, este teste obriga a decidir se é mesmo só para admins."""
+    documented = {
+        (method, path)
+        for path, operations in schema()["paths"].items()
+        for method, operation in operations.items()
+        if method in HTTP_METHODS and "403" in operation["responses"]
+    }
+
+    assert documented == ADMIN_OPERATIONS
+
+
+def test_login_documents_429() -> None:
+    assert "429" in schema()["paths"]["/auth/login"]["post"]["responses"]

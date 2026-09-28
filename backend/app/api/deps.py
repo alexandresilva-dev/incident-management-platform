@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.base import Base
 from app.db.session import get_db
 from app.models import User
+from app.models.enums import UserRole
 from app.security import decode_access_token
 
 # Alias para não repetir Depends(get_db) em todos os endpoints.
@@ -47,3 +48,15 @@ def get_or_404[ModelT: Base](
             detail=f"{model.__name__} {object_id} not found",
         )
     return obj
+
+
+def require_admin(current_user: CurrentUser) -> User:
+    """Só administradores. Corre depois da autenticação (401 antes de 403)."""
+    if current_user.role != UserRole.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Administrator role required"
+        )
+    return current_user
+
+
+AdminUser = Annotated[User, Depends(require_admin)]

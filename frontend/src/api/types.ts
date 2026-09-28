@@ -132,10 +132,14 @@ export interface DashboardSummary {
   }
 }
 
+export const USER_ROLES = ['analyst', 'admin'] as const
+export type UserRole = (typeof USER_ROLES)[number]
+
 export interface User {
   id: number
   email: string
   full_name: string
+  role: UserRole
   is_active: boolean
   created_at: string
 }

@@ -19,6 +19,7 @@ from app.models.enums import (
     IncidentCategory,
     IncidentStatus,
     Severity,
+    UserRole,
     VulnerabilityStatus,
 )
 from app.schemas.incident import IncidentCreate
@@ -211,8 +212,8 @@ def ensure_demo_user(db) -> str | None:
         print("SEED_USER_EMAIL / SEED_USER_PASSWORD not set: no demo user created.")
         return None
     if get_user_by_email(db, email) is None:
-        create_user(db, email, "Demo User", password)
-        print(f"Created demo user {email}.")
+        create_user(db, email, "Demo User", password, role=UserRole.admin)
+        print(f"Created demo user {email} (admin).")
     return email
 
 

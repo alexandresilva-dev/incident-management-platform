@@ -33,3 +33,28 @@ class IncidentClosedError(DomainError):
     def __init__(self, incident_id: int) -> None:
         self.incident_id = incident_id
         super().__init__(f"Incident {incident_id} is closed and can no longer be modified")
+
+
+class TooManyLoginAttemptsError(DomainError):
+    """Demasiadas tentativas de login falhadas; é preciso esperar."""
+
+    def __init__(self, retry_after_seconds: int) -> None:
+        self.retry_after_seconds = retry_after_seconds
+        minutes = -(-retry_after_seconds // 60)  # arredonda para cima
+        unit = "minute" if minutes == 1 else "minutes"
+        super().__init__(f"Too many failed login attempts. Try again in {minutes} {unit}.")
+
+
+class DuplicateUserError(DomainError):
+    """Já existe um utilizador com este email."""
+
+    def __init__(self, email: str) -> None:
+        self.email = email
+        super().__init__(f"A user with email {email} already exists")
+
+
+class LastAdminError(DomainError):
+    """Esta alteração deixaria a aplicação sem nenhum administrador ativo."""
+
+    def __init__(self) -> None:
+        super().__init__("Cannot remove or deactivate the last active administrator")
