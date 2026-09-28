@@ -15,6 +15,7 @@ import sys
 
 from app.db.session import SessionLocal
 from app.models.enums import UserRole
+from app.services.errors import DomainError
 from app.services.users import create_user
 
 
@@ -33,7 +34,7 @@ def main() -> None:
         try:
             role = UserRole.admin if args.admin else UserRole.analyst
             user = create_user(db, args.email, args.full_name, password, role=role)
-        except ValueError as error:
+        except (ValueError, DomainError) as error:
             sys.exit(str(error))
     print(f"Created {user.role.value} {user.email} (id {user.id}).")
 

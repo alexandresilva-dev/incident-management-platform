@@ -1,8 +1,8 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import assets, auth, dashboard, health, incidents, vulnerabilities
-from app.api.deps import get_current_user
+from app.api import assets, auth, dashboard, health, incidents, users, vulnerabilities
+from app.api.deps import get_current_user, require_admin
 from app.api.errors import register_exception_handlers
 from app.config import settings
 
@@ -27,13 +27,19 @@ recorded in the audit trail (`GET /incidents/{id}/history`).
 Derived from the severity (critical=P1 … low=P4) and escalated one level when an
 affected asset is `critical`. It is never set directly.
 
+## Roles
+`analyst` works on incidents, assets and vulnerabilities. `admin` can also delete assets
+and vulnerabilities and manage users (`/users`). Failing this returns 403.
+
 ## Errors
 | Status | Meaning |
 |--------|---------|
 | 401 | Missing, invalid or expired token |
+| 403 | Authenticated, but the role is not allowed to do this |
 | 404 | Resource not found |
-| 409 | The request conflicts with the current state (invalid transition, closed incident) |
+| 409 | Conflicts with the current state (invalid transition, closed incident, duplicate user) |
 | 422 | Invalid input, or a reference to an id that does not exist |
+| 429 | Too many failed login attempts; see the `Retry-After` header |
 """
 
 TAGS_METADATA = [
@@ -48,6 +54,7 @@ TAGS_METADATA = [
         "description": "Known vulnerabilities (CVE / CVSS) and their remediation status.",
     },
     {"name": "dashboard", "description": "Aggregated counts for the dashboard."},
+    {"name": "users", "description": "User management. Administrators only."},
     {"name": "health", "description": "Liveness and database connectivity. Public."},
 ]
 
@@ -80,3 +87,8 @@ app.include_router(assets.router, dependencies=protected, responses=unauthorized
 app.include_router(vulnerabilities.router, dependencies=protected, responses=unauthorized)
 app.include_router(incidents.router, dependencies=protected, responses=unauthorized)
 app.include_router(dashboard.router, dependencies=protected, responses=unauthorized)
+app.include_router(
+    users.router,
+    dependencies=[Depends(require_admin)],
+    responses={**unauthorized, 403: {"description": "Administrator role required"}},
+)

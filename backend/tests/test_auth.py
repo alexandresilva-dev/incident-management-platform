@@ -9,6 +9,7 @@ from app.config import settings
 from app.models import User
 from app.models.enums import UserRole
 from app.security import ALGORITHM, create_access_token, verify_password
+from app.services.errors import DuplicateUserError
 from app.services.users import MIN_PASSWORD_LENGTH, authenticate, create_user
 from tests.conftest import TEST_USER_EMAIL, TEST_USER_PASSWORD
 
@@ -147,7 +148,7 @@ def test_create_user_rejects_weak_passwords_and_duplicates(db: Session):
         create_user(db, "a@example.com", "A", "x" * (MIN_PASSWORD_LENGTH - 1))
 
     create_user(db, "a@example.com", "A", "a-long-enough-password")
-    with pytest.raises(ValueError, match="already exists"):
+    with pytest.raises(DuplicateUserError):
         create_user(db, "A@EXAMPLE.COM", "A again", "another-long-password")
 
 

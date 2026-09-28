@@ -1,10 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import DbSession, get_or_404
+from app.api.deps import DbSession, get_or_404, require_admin
 from app.models import Asset, Vulnerability
 from app.models.enums import Severity, VulnerabilityStatus
 from app.schemas.vulnerability import (
@@ -104,7 +104,11 @@ def update_vulnerability(
 @router.delete(
     "/{vulnerability_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses={404: {"description": "Vulnerability not found"}},
+    dependencies=[Depends(require_admin)],
+    responses={
+        403: {"description": "Administrator role required"},
+        404: {"description": "Vulnerability not found"},
+    },
 )
 def delete_vulnerability(vulnerability_id: int, db: DbSession) -> Response:
     """Delete a vulnerability. Incidents that referenced it only lose the link."""

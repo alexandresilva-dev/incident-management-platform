@@ -1,9 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy import select
 
-from app.api.deps import DbSession, get_or_404
+from app.api.deps import DbSession, get_or_404, require_admin
 from app.models import Asset
 from app.models.enums import AssetType, Criticality
 from app.schemas.asset import AssetCreate, AssetRead, AssetUpdate
@@ -63,7 +63,11 @@ def update_asset(asset_id: int, payload: AssetUpdate, db: DbSession) -> Asset:
 @router.delete(
     "/{asset_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses={404: {"description": "Asset not found"}},
+    dependencies=[Depends(require_admin)],
+    responses={
+        403: {"description": "Administrator role required"},
+        404: {"description": "Asset not found"},
+    },
 )
 def delete_asset(asset_id: int, db: DbSession) -> Response:
     """Delete an asset. Its vulnerabilities are kept (without an asset) and open incidents
