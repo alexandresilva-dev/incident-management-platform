@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     env_file: .env
     ports:
       # Só acessível a partir do próprio Mac (127.0.0.1). 5433 no host para não
