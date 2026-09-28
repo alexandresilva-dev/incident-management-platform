@@ -1,4 +1,9 @@
+import os
 from collections.abc import Iterator
+
+# Antes de importar a app (que lê a configuração ao ser importada): os testes não
+# devem depender do .env de quem os corre. Valor só para testes.
+os.environ.setdefault("SECRET_KEY", "test-only-secret-key-not-for-real-use-0123456789")
 
 import pytest
 from fastapi.testclient import TestClient
