@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Query, Response, status
 from sqlalchemy import select
 
@@ -24,9 +26,9 @@ def list_assets(
     db: DbSession,
     asset_type: AssetType | None = None,
     criticality: Criticality | None = None,
-    q: str | None = Query(default=None, description="Case-insensitive search in the name"),
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=200),
+    q: Annotated[str | None, Query(description="Case-insensitive search in the name")] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> list[Asset]:
     stmt = select(Asset).order_by(Asset.id)
     if asset_type is not None:

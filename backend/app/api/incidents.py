@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Annotated
 
 from fastapi import APIRouter, Query, status
 from sqlalchemy import select
@@ -32,15 +33,15 @@ def create_incident(payload: IncidentCreate, db: DbSession) -> Incident:
 @router.get("", response_model=list[IncidentSummary])
 def list_incidents(
     db: DbSession,
-    status_: IncidentStatus | None = Query(default=None, alias="status"),
+    status_: Annotated[IncidentStatus | None, Query(alias="status")] = None,
     severity: Severity | None = None,
     priority: Priority | None = None,
     category: IncidentCategory | None = None,
-    asset_id: int | None = Query(default=None, description="Only incidents affecting this asset"),
-    q: str | None = Query(default=None, description="Case-insensitive search in the title"),
+    asset_id: Annotated[int | None, Query(description="Only incidents affecting this asset")] = None,
+    q: Annotated[str | None, Query(description="Case-insensitive search in the title")] = None,
     sort: IncidentSort = IncidentSort.newest,
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=200),
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> list[Incident]:
     if sort == IncidentSort.priority:
         stmt = select(Incident).order_by(Incident.priority, Incident.id.desc())

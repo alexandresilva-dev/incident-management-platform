@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -41,11 +43,11 @@ def create_vulnerability(payload: VulnerabilityCreate, db: DbSession) -> Vulnera
 def list_vulnerabilities(
     db: DbSession,
     severity: Severity | None = None,
-    status_: VulnerabilityStatus | None = Query(default=None, alias="status"),
+    status_: Annotated[VulnerabilityStatus | None, Query(alias="status")] = None,
     asset_id: int | None = None,
     cve_id: str | None = None,
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=200),
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> list[Vulnerability]:
     stmt = select(Vulnerability).order_by(Vulnerability.id)
     if severity is not None:

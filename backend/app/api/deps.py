@@ -1,4 +1,4 @@
-from typing import Annotated, TypeVar
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -9,10 +9,8 @@ from app.db.session import get_db
 # Alias para não repetir Depends(get_db) em todos os endpoints.
 DbSession = Annotated[Session, Depends(get_db)]
 
-ModelT = TypeVar("ModelT", bound=Base)
 
-
-def get_or_404(
+def get_or_404[ModelT: Base](
     db: Session, model: type[ModelT], object_id: int, *, for_update: bool = False
 ) -> ModelT:
     """Devolve o objeto ou 404. `for_update` bloqueia a linha até ao fim da transação."""
