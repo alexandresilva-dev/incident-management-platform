@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import Layout from './components/Layout.tsx'
+import IncidentDetailPage from './pages/IncidentDetailPage.tsx'
 import IncidentsPage from './pages/IncidentsPage.tsx'
 
 export default function App() {
@@ -9,6 +10,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<Navigate to="/incidents" replace />} />
           <Route path="incidents" element={<IncidentsPage />} />
+          <Route path="incidents/:id" element={<IncidentDetailPage />} />
           <Route path="*" element={<p className="empty">Page not found.</p>} />
         </Route>
       </Routes>
