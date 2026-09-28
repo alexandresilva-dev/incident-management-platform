@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 
+from app.api import health
+
 app = FastAPI(title="Incident Management Platform")
 
-
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
+app.include_router(health.router)
