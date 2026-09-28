@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 from sqlalchemy import select
 
-from app.api.deps import DbSession, get_or_404
+from app.api.deps import CurrentUser, DbSession, get_or_404
 from app.models import Incident, IncidentStatusHistory, incident_assets
 from app.models.enums import IncidentCategory, IncidentStatus, Priority, Severity
 from app.schemas.incident import (
@@ -26,8 +26,8 @@ class IncidentSort(StrEnum):
 
 
 @router.post("", response_model=IncidentRead, status_code=status.HTTP_201_CREATED)
-def create_incident(payload: IncidentCreate, db: DbSession) -> Incident:
-    return incident_service.create_incident(db, payload)
+def create_incident(payload: IncidentCreate, db: DbSession, current_user: CurrentUser) -> Incident:
+    return incident_service.create_incident(db, payload, actor=current_user.email)
 
 
 @router.get("", response_model=list[IncidentSummary])
@@ -80,11 +80,13 @@ def update_incident(incident_id: int, payload: IncidentUpdate, db: DbSession) ->
 
 
 @router.post("/{incident_id}/transitions", response_model=IncidentRead)
-def transition_incident(incident_id: int, payload: TransitionRequest, db: DbSession) -> Incident:
+def transition_incident(
+    incident_id: int, payload: TransitionRequest, db: DbSession, current_user: CurrentUser
+) -> Incident:
     """Muda o estado do incidente. Só são aceites as transições do workflow."""
     incident = get_or_404(db, Incident, incident_id, for_update=True)
     return incident_service.transition_incident(
-        db, incident, payload.to_status, comment=payload.comment
+        db, incident, payload.to_status, comment=payload.comment, actor=current_user.email
     )
 
 

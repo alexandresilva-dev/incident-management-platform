@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import assets, auth, dashboard, health, incidents, vulnerabilities
+from app.api.deps import get_current_user
 from app.api.errors import register_exception_handlers
 from app.config import settings
 
@@ -18,9 +19,13 @@ app.add_middleware(
 
 register_exception_handlers(app)
 
+# Públicos: /health (monitorização) e /auth (onde se obtém o token).
 app.include_router(health.router)
 app.include_router(auth.router)
-app.include_router(assets.router)
-app.include_router(vulnerabilities.router)
-app.include_router(incidents.router)
-app.include_router(dashboard.router)
+
+# Todo o resto exige um token válido.
+protected = [Depends(get_current_user)]
+app.include_router(assets.router, dependencies=protected)
+app.include_router(vulnerabilities.router, dependencies=protected)
+app.include_router(incidents.router, dependencies=protected)
+app.include_router(dashboard.router, dependencies=protected)

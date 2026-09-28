@@ -16,7 +16,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models import User
-from app.security import hash_password
+from app.security import create_access_token, hash_password
 
 TEST_DB_NAME = f"{settings.postgres_db}_test"
 
@@ -94,5 +94,8 @@ def anonymous_client(db: Session) -> Iterator[TestClient]:
 
 
 @pytest.fixture
-def client(anonymous_client: TestClient) -> TestClient:
+def client(anonymous_client: TestClient, test_user: User) -> TestClient:
+    """Cliente autenticado como `test_user` (o que quase todos os testes usam)."""
+    token = create_access_token(str(test_user.id))
+    anonymous_client.headers["Authorization"] = f"Bearer {token}"
     return anonymous_client
