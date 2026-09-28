@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
 from typing import TypeVar
 
@@ -10,6 +10,7 @@ from app.models import Asset, Incident, IncidentStatusHistory, Vulnerability
 from app.models.enums import IncidentStatus
 from app.schemas.incident import IncidentCreate, IncidentUpdate
 from app.services.errors import IncidentClosedError, UnknownReferenceError
+from app.services.prioritization import calculate_priority
 from app.services.workflow import validate_transition
 
 ModelT = TypeVar("ModelT", bound=Base)
@@ -27,6 +28,21 @@ def _load_all(db: Session, model: type[ModelT], ids: Sequence[int], kind: str) -
     return [found[i] for i in unique_ids]
 
 
+def recalculate_priority(incident: Incident) -> None:
+    """A prioridade guarda-se (para ordenar/filtrar em SQL) mas tem de acompanhar
+    a severidade e a criticidade dos ativos afetados."""
+    incident.priority = calculate_priority(
+        incident.severity, [asset.criticality for asset in incident.assets]
+    )
+
+
+def reprioritise_open_incidents(incidents: Iterable[Incident]) -> None:
+    """Recalcula os incidentes ainda abertos; os fechados são registos finais."""
+    for incident in incidents:
+        if incident.status != IncidentStatus.closed:
+            recalculate_priority(incident)
+
+
 def create_incident(db: Session, payload: IncidentCreate, actor: str | None = None) -> Incident:
     incident = Incident(
         title=payload.title,
@@ -37,6 +53,7 @@ def create_incident(db: Session, payload: IncidentCreate, actor: str | None = No
         assets=_load_all(db, Asset, payload.asset_ids, "asset"),
         vulnerabilities=_load_all(db, Vulnerability, payload.vulnerability_ids, "vulnerability"),
     )
+    recalculate_priority(incident)
     # Todo o incidente nasce com um registo de audit trail (sem estado anterior).
     incident.history.append(
         IncidentStatusHistory(
@@ -67,6 +84,7 @@ def update_incident(db: Session, incident: Incident, payload: IncidentUpdate) ->
         )
     for field, value in changes.items():
         setattr(incident, field, value)
+    recalculate_priority(incident)
 
     db.commit()
     db.refresh(incident)

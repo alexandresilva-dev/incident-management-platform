@@ -5,6 +5,7 @@ from app.api.deps import DbSession, get_or_404
 from app.models import Asset
 from app.models.enums import AssetType, Criticality
 from app.schemas.asset import AssetCreate, AssetRead, AssetUpdate
+from app.services import assets as asset_service
 
 router = APIRouter(prefix="/assets", tags=["assets"])
 
@@ -45,16 +46,11 @@ def get_asset(asset_id: int, db: DbSession) -> Asset:
 @router.patch("/{asset_id}", response_model=AssetRead)
 def update_asset(asset_id: int, payload: AssetUpdate, db: DbSession) -> Asset:
     asset = get_or_404(db, Asset, asset_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(asset, field, value)
-    db.commit()
-    db.refresh(asset)
-    return asset
+    return asset_service.update_asset(db, asset, payload)
 
 
 @router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_asset(asset_id: int, db: DbSession) -> Response:
     asset = get_or_404(db, Asset, asset_id)
-    db.delete(asset)
-    db.commit()
+    asset_service.delete_asset(db, asset)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

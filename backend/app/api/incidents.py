@@ -1,3 +1,5 @@
+from enum import StrEnum
+
 from fastapi import APIRouter, Query, status
 from sqlalchemy import select
 
@@ -17,6 +19,11 @@ from app.services import incidents as incident_service
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
 
+class IncidentSort(StrEnum):
+    newest = "newest"
+    priority = "priority"  # P1 primeiro; a igualdade desfaz-se pelos mais recentes
+
+
 @router.post("", response_model=IncidentRead, status_code=status.HTTP_201_CREATED)
 def create_incident(payload: IncidentCreate, db: DbSession) -> Incident:
     return incident_service.create_incident(db, payload)
@@ -31,10 +38,14 @@ def list_incidents(
     category: IncidentCategory | None = None,
     asset_id: int | None = Query(default=None, description="Only incidents affecting this asset"),
     q: str | None = Query(default=None, description="Case-insensitive search in the title"),
+    sort: IncidentSort = IncidentSort.newest,
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> list[Incident]:
-    stmt = select(Incident).order_by(Incident.id.desc())
+    if sort == IncidentSort.priority:
+        stmt = select(Incident).order_by(Incident.priority, Incident.id.desc())
+    else:
+        stmt = select(Incident).order_by(Incident.id.desc())
     if status_ is not None:
         stmt = stmt.where(Incident.status == status_)
     if severity is not None:
