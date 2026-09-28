@@ -25,8 +25,15 @@ class IncidentSort(StrEnum):
     priority = "priority"  # P1 primeiro; a igualdade desfaz-se pelos mais recentes
 
 
-@router.post("", response_model=IncidentRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=IncidentRead,
+    status_code=status.HTTP_201_CREATED,
+    responses={422: {"description": "Invalid input or unknown asset/vulnerability ids"}},
+)
 def create_incident(payload: IncidentCreate, db: DbSession, current_user: CurrentUser) -> Incident:
+    """Register an incident. It starts as `open`; the priority is calculated automatically
+    and the creation is the first entry of the audit trail."""
     return incident_service.create_incident(db, payload, actor=current_user.email)
 
 
@@ -45,6 +52,8 @@ def list_incidents(
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> list[Incident]:
+    """List incidents (lightweight summaries), newest first by default. Filter by status,
+    severity, priority, category, affected asset or title; sort by `priority` to get P1 first."""
     if sort == IncidentSort.priority:
         stmt = select(Incident).order_by(Incident.priority, Incident.id.desc())
     else:
@@ -68,18 +77,52 @@ def list_incidents(
     return list(db.scalars(stmt.offset(skip).limit(limit)))
 
 
-@router.get("/{incident_id}", response_model=IncidentRead)
+@router.get(
+    "/{incident_id}",
+    response_model=IncidentRead,
+    responses={404: {"description": "Incident not found"}},
+)
 def get_incident(incident_id: int, db: DbSession) -> Incident:
+    """Full incident, with its assets, vulnerabilities and the transitions allowed right now."""
     return get_or_404(db, Incident, incident_id)
 
 
-@router.patch("/{incident_id}", response_model=IncidentRead)
+@router.patch(
+    "/{incident_id}",
+    response_model=IncidentRead,
+    responses={
+        404: {"description": "Incident not found"},
+        409: {"description": "The incident is closed and can no longer be modified"},
+        422: {"description": "Invalid input or unknown asset/vulnerability ids"},
+    },
+)
 def update_incident(incident_id: int, payload: IncidentUpdate, db: DbSession) -> Incident:
+    """Partial update. The status cannot be changed here (use transitions) and the
+    priority is recalculated when the severity or the linked assets change."""
     incident = get_or_404(db, Incident, incident_id)
     return incident_service.update_incident(db, incident, payload)
 
 
-@router.post("/{incident_id}/transitions", response_model=IncidentRead)
+@router.post(
+    "/{incident_id}/transitions",
+    response_model=IncidentRead,
+    responses={
+        404: {"description": "Incident not found"},
+        409: {
+            "description": "Transition not allowed by the workflow",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": (
+                            "Cannot move incident from 'open' to 'closed'. Allowed: investigating"
+                        ),
+                        "allowed_transitions": ["investigating"],
+                    }
+                }
+            },
+        },
+    },
+)
 def transition_incident(
     incident_id: int, payload: TransitionRequest, db: DbSession, current_user: CurrentUser
 ) -> Incident:
@@ -90,7 +133,11 @@ def transition_incident(
     )
 
 
-@router.get("/{incident_id}/history", response_model=list[StatusHistoryRead])
+@router.get(
+    "/{incident_id}/history",
+    response_model=list[StatusHistoryRead],
+    responses={404: {"description": "Incident not found"}},
+)
 def get_incident_history(incident_id: int, db: DbSession) -> list[IncidentStatusHistory]:
     """Audit trail: todas as mudanças de estado, da mais antiga para a mais recente."""
     get_or_404(db, Incident, incident_id)

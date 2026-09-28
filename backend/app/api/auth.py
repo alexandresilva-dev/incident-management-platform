@@ -28,7 +28,11 @@ def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DbSession) 
     return Token(access_token=create_access_token(str(user.id)))
 
 
-@router.get("/me", response_model=UserRead)
+@router.get(
+    "/me",
+    response_model=UserRead,
+    responses={401: {"description": "Missing, invalid or expired token"}},
+)
 def read_current_user(current_user: CurrentUser) -> UserRead:
     """O utilizador a que pertence o token."""
     return current_user

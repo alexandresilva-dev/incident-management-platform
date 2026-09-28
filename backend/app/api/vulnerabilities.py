@@ -26,8 +26,15 @@ def _ensure_asset_exists(db: Session, asset_id: int | None) -> None:
         )
 
 
-@router.post("", response_model=VulnerabilityRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=VulnerabilityRead,
+    status_code=status.HTTP_201_CREATED,
+    responses={422: {"description": "Invalid input or unknown asset_id"}},
+)
 def create_vulnerability(payload: VulnerabilityCreate, db: DbSession) -> Vulnerability:
+    """Register a vulnerability on an asset. If `severity` is omitted it is derived from
+    `cvss_score` using the CVSS v3 bands (9.0+ critical, 7.0+ high, 4.0+ medium, else low)."""
     _ensure_asset_exists(db, payload.asset_id)
     data = payload.model_dump()
     if data["severity"] is None:
@@ -49,6 +56,7 @@ def list_vulnerabilities(
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> list[Vulnerability]:
+    """List vulnerabilities, filtered by severity, status, asset or CVE id."""
     stmt = select(Vulnerability).order_by(Vulnerability.id)
     if severity is not None:
         stmt = stmt.where(Vulnerability.severity == severity)
@@ -61,15 +69,28 @@ def list_vulnerabilities(
     return list(db.scalars(stmt.offset(skip).limit(limit)))
 
 
-@router.get("/{vulnerability_id}", response_model=VulnerabilityRead)
+@router.get(
+    "/{vulnerability_id}",
+    response_model=VulnerabilityRead,
+    responses={404: {"description": "Vulnerability not found"}},
+)
 def get_vulnerability(vulnerability_id: int, db: DbSession) -> Vulnerability:
+    """Get one vulnerability."""
     return get_or_404(db, Vulnerability, vulnerability_id)
 
 
-@router.patch("/{vulnerability_id}", response_model=VulnerabilityRead)
+@router.patch(
+    "/{vulnerability_id}",
+    response_model=VulnerabilityRead,
+    responses={
+        404: {"description": "Vulnerability not found"},
+        422: {"description": "Invalid input or unknown asset_id"},
+    },
+)
 def update_vulnerability(
     vulnerability_id: int, payload: VulnerabilityUpdate, db: DbSession
 ) -> Vulnerability:
+    """Partial update, e.g. to move a vulnerability to `patched` or attach it to an asset."""
     vulnerability = get_or_404(db, Vulnerability, vulnerability_id)
     changes = payload.model_dump(exclude_unset=True)
     _ensure_asset_exists(db, changes.get("asset_id"))
@@ -80,8 +101,13 @@ def update_vulnerability(
     return vulnerability
 
 
-@router.delete("/{vulnerability_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{vulnerability_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={404: {"description": "Vulnerability not found"}},
+)
 def delete_vulnerability(vulnerability_id: int, db: DbSession) -> Response:
+    """Delete a vulnerability. Incidents that referenced it only lose the link."""
     vulnerability = get_or_404(db, Vulnerability, vulnerability_id)
     db.delete(vulnerability)
     db.commit()
