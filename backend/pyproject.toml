@@ -1,0 +1,6 @@
+# Só configuração de ferramentas. As dependências continuam em requirements*.txt.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
