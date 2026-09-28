@@ -22,7 +22,9 @@ def test_create_asset_applies_defaults(client: TestClient) -> None:
 
 
 def test_create_asset_normalises_input(client: TestClient) -> None:
-    asset = make_asset(client, name="  srv-db-01  ", ip_address="2001:0db8:0000:0000:0000:0000:0000:0001")
+    asset = make_asset(
+        client, name="  srv-db-01  ", ip_address="2001:0db8:0000:0000:0000:0000:0000:0001"
+    )
 
     assert asset["name"] == "srv-db-01"
     assert asset["ip_address"] == "2001:db8::1"

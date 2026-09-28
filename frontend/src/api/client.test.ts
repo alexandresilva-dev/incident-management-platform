@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { api, ApiError, formatErrorDetail, toQuery } from './client.ts'
+import { clearToken, getToken, setToken } from '../auth/tokenStorage.ts'
+import { api, ApiError, formatErrorDetail, setUnauthorizedHandler, toQuery } from './client.ts'
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  clearToken()
+  setUnauthorizedHandler(undefined)
+})
 
 function stubFetch(response: Response | Error) {
   const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
@@ -94,5 +99,67 @@ describe('api requests', () => {
 
     expect((error as ApiError).status).toBe(502)
     expect((error as ApiError).message).toBe('Bad Gateway')
+  })
+})
+
+describe('authentication', () => {
+  it('sends the stored token as a Bearer header', async () => {
+    setToken('abc123')
+    const fetchMock = stubFetch(json({ id: 1 }))
+
+    await api.me()
+
+    const init = fetchMock.mock.calls[0]![1]!
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer abc123')
+  })
+
+  it('sends no Authorization header when there is no token', async () => {
+    const fetchMock = stubFetch(json({ id: 1 }))
+
+    await api.me()
+
+    const init = fetchMock.mock.calls[0]![1]!
+    expect(init.headers).not.toHaveProperty('Authorization')
+  })
+
+  it('logs in with an OAuth2 form body (username is the email)', async () => {
+    const fetchMock = stubFetch(json({ access_token: 't', token_type: 'bearer' }))
+
+    await api.login('ana@example.com', 'pw')
+
+    const [url, init] = fetchMock.mock.calls[0]! as [string, RequestInit]
+    const body = init.body as URLSearchParams
+    expect(url).toMatch(/\/auth\/login$/)
+    expect(init.method).toBe('POST')
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe(
+      'application/x-www-form-urlencoded',
+    )
+    expect(body.get('username')).toBe('ana@example.com')
+    expect(body.get('password')).toBe('pw')
+  })
+
+  it('drops the token and notifies the app when the API answers 401', async () => {
+    setToken('expired')
+    const onUnauthorized = vi.fn()
+    setUnauthorizedHandler(onUnauthorized)
+    stubFetch(json({ detail: 'Invalid or expired token' }, 401))
+
+    await expect(api.getDashboardSummary()).rejects.toBeInstanceOf(ApiError)
+
+    expect(getToken()).toBeNull()
+    expect(onUnauthorized).toHaveBeenCalledOnce()
+  })
+
+  it('treats a 401 on login as wrong credentials, not as an expired session', async () => {
+    setToken('still-valid')
+    const onUnauthorized = vi.fn()
+    setUnauthorizedHandler(onUnauthorized)
+    stubFetch(json({ detail: 'Incorrect email or password' }, 401))
+
+    const error = await api.login('a@b.c', 'wrong').catch((e: unknown) => e)
+
+    expect((error as ApiError).message).toBe('Incorrect email or password')
+    expect(onUnauthorized).not.toHaveBeenCalled()
+    expect(getToken()).toBe('still-valid')
   })
 })

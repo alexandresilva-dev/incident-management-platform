@@ -24,9 +24,7 @@ class InvalidTransitionError(DomainError):
         self.target = target
         self.allowed = allowed
         options = ", ".join(allowed) if allowed else "none (terminal state)"
-        super().__init__(
-            f"Cannot move incident from '{current}' to '{target}'. Allowed: {options}"
-        )
+        super().__init__(f"Cannot move incident from '{current}' to '{target}'. Allowed: {options}")
 
 
 class IncidentClosedError(DomainError):

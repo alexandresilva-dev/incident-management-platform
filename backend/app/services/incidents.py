@@ -1,6 +1,5 @@
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime
-from typing import TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -13,10 +12,10 @@ from app.services.errors import IncidentClosedError, UnknownReferenceError
 from app.services.prioritization import calculate_priority
 from app.services.workflow import validate_transition
 
-ModelT = TypeVar("ModelT", bound=Base)
 
-
-def _load_all(db: Session, model: type[ModelT], ids: Sequence[int], kind: str) -> list[ModelT]:
+def _load_all[ModelT: Base](
+    db: Session, model: type[ModelT], ids: Sequence[int], kind: str
+) -> list[ModelT]:
     """Carrega os objetos com estes ids; se algum não existir, é erro do cliente."""
     unique_ids = list(dict.fromkeys(ids))
     if not unique_ids:

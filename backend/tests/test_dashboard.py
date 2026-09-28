@@ -13,22 +13,35 @@ def test_summary_of_empty_database_has_every_key_at_zero(client: TestClient) -> 
     assert summary["incidents"]["total"] == 0
     assert summary["incidents"]["active"] == 0
     assert summary["incidents"]["by_status"] == {
-        "open": 0, "investigating": 0, "mitigated": 0, "resolved": 0, "closed": 0,
+        "open": 0,
+        "investigating": 0,
+        "mitigated": 0,
+        "resolved": 0,
+        "closed": 0,
     }
     assert summary["incidents"]["active_by_priority"] == {"P1": 0, "P2": 0, "P3": 0, "P4": 0}
     assert summary["incidents"]["active_by_severity"] == {
-        "low": 0, "medium": 0, "high": 0, "critical": 0,
+        "low": 0,
+        "medium": 0,
+        "high": 0,
+        "critical": 0,
     }
     assert summary["assets"] == {
-        "total": 0, "by_criticality": {"low": 0, "medium": 0, "high": 0, "critical": 0},
+        "total": 0,
+        "by_criticality": {"low": 0, "medium": 0, "high": 0, "critical": 0},
     }
     assert summary["vulnerabilities"]["by_status"] == {
-        "open": 0, "mitigated": 0, "patched": 0, "accepted": 0,
+        "open": 0,
+        "mitigated": 0,
+        "patched": 0,
+        "accepted": 0,
     }
 
 
 def test_summary_counts_everything(client: TestClient) -> None:
-    payments = create(client, "/assets", name="payments-db", asset_type="database", criticality="critical")
+    payments = create(
+        client, "/assets", name="payments-db", asset_type="database", criticality="critical"
+    )
     create(client, "/assets", name="laptop", asset_type="workstation", criticality="low")
     create(client, "/vulnerabilities", title="v1", severity="critical", asset_id=payments["id"])
     create(client, "/vulnerabilities", title="v2", severity="low", status="patched")
@@ -46,7 +59,12 @@ def test_summary_counts_everything(client: TestClient) -> None:
     assert incidents["by_status"]["open"] == 2 and incidents["by_status"]["closed"] == 1
     # O incidente "medium" está closed: não conta como ativo.
     assert incidents["active_by_severity"] == {"low": 1, "medium": 0, "high": 1, "critical": 0}
-    assert incidents["active_by_priority"] == {"P1": 1, "P2": 0, "P3": 0, "P4": 1}  # high + critical asset -> P1
+    assert incidents["active_by_priority"] == {
+        "P1": 1,
+        "P2": 0,
+        "P3": 0,
+        "P4": 1,
+    }  # high + critical asset -> P1
     assert summary["assets"]["total"] == 2
     assert summary["assets"]["by_criticality"]["critical"] == 1
     assert summary["vulnerabilities"]["total"] == 2

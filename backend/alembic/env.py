@@ -1,8 +1,8 @@
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import create_engine, pool
 
+from alembic import context
 from app import models  # noqa: F401  (regista os modelos em Base.metadata)
 from app.config import settings
 from app.db.base import Base

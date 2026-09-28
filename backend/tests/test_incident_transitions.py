@@ -127,7 +127,10 @@ def test_transition_validates_input(client: TestClient) -> None:
 
     assert client.post(url, json={}).status_code == 422
     assert client.post(url, json={"to_status": "on_fire"}).status_code == 422
-    assert client.post(url, json={"to_status": "investigating", "comment": "x" * 2001}).status_code == 422
+    assert (
+        client.post(url, json={"to_status": "investigating", "comment": "x" * 2001}).status_code
+        == 422
+    )
 
 
 def test_transition_and_history_of_missing_incident_return_404(client: TestClient) -> None:

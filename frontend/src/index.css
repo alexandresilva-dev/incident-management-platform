@@ -644,3 +644,30 @@ a.btn--primary {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
+
+/* ---------- Autenticação ---------- */
+.topbar__user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.login {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 1rem;
+}
+
+.login__card {
+  width: min(380px, 100%);
+}
+
+.login__card h1 {
+  font-size: 1.35rem;
+}
+
+.login__card p {
+  margin: 0;
+}
