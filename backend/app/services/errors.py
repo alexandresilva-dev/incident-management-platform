@@ -33,3 +33,13 @@ class IncidentClosedError(DomainError):
     def __init__(self, incident_id: int) -> None:
         self.incident_id = incident_id
         super().__init__(f"Incident {incident_id} is closed and can no longer be modified")
+
+
+class TooManyLoginAttemptsError(DomainError):
+    """Demasiadas tentativas de login falhadas; é preciso esperar."""
+
+    def __init__(self, retry_after_seconds: int) -> None:
+        self.retry_after_seconds = retry_after_seconds
+        minutes = -(-retry_after_seconds // 60)  # arredonda para cima
+        unit = "minute" if minutes == 1 else "minutes"
+        super().__init__(f"Too many failed login attempts. Try again in {minutes} {unit}.")
