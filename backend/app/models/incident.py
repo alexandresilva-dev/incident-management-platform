@@ -11,6 +11,7 @@ from app.models.mixins import TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.asset import Asset
+    from app.models.status_history import IncidentStatusHistory
     from app.models.vulnerability import Vulnerability
 
 # Tabelas de associação (muitos-para-muitos). Se um ativo/vulnerabilidade/incidente
@@ -56,4 +57,7 @@ class Incident(TimestampMixin, Base):
     )
     vulnerabilities: Mapped[list["Vulnerability"]] = relationship(
         secondary=incident_vulnerabilities, back_populates="incidents"
+    )
+    history: Mapped[list["IncidentStatusHistory"]] = relationship(
+        back_populates="incident", order_by="IncidentStatusHistory.id"
     )
