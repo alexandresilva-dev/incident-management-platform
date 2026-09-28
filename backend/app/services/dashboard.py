@@ -1,6 +1,6 @@
 from enum import Enum
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.models import Asset, Incident, Vulnerability
@@ -19,9 +19,17 @@ from app.schemas.dashboard import (
 )
 
 
-def _count_by(db: Session, column: InstrumentedAttribute, enum_cls: type[Enum]) -> dict:
+def _count_by(
+    db: Session,
+    column: InstrumentedAttribute,
+    enum_cls: type[Enum],
+    where: ColumnElement[bool] | None = None,
+) -> dict:
     """Contagem por valor do enum, com TODOS os valores presentes (0 se não houver)."""
-    rows = dict(db.execute(select(column, func.count()).group_by(column)).tuples().all())
+    stmt = select(column, func.count()).group_by(column)
+    if where is not None:
+        stmt = stmt.where(where)
+    rows = dict(db.execute(stmt).tuples().all())
     return {member: rows.get(member, 0) for member in enum_cls}
 
 
@@ -31,6 +39,7 @@ def _count_all(db: Session, model: type) -> int:
 
 def build_dashboard_summary(db: Session) -> DashboardSummary:
     incidents_by_status = _count_by(db, Incident.status, IncidentStatus)
+    is_active = Incident.status != IncidentStatus.closed
 
     return DashboardSummary(
         incidents=IncidentStats(
@@ -41,8 +50,8 @@ def build_dashboard_summary(db: Session) -> DashboardSummary:
                 if status != IncidentStatus.closed
             ),
             by_status=incidents_by_status,
-            by_severity=_count_by(db, Incident.severity, Severity),
-            by_priority=_count_by(db, Incident.priority, Priority),
+            active_by_severity=_count_by(db, Incident.severity, Severity, where=is_active),
+            active_by_priority=_count_by(db, Incident.priority, Priority, where=is_active),
         ),
         assets=AssetStats(
             total=_count_all(db, Asset),

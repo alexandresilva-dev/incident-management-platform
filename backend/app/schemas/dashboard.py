@@ -12,9 +12,9 @@ from app.models.enums import (
 class IncidentStats(BaseModel):
     total: int
     active: int  # tudo o que ainda não está closed
-    by_status: dict[IncidentStatus, int]
-    by_severity: dict[Severity, int]
-    by_priority: dict[Priority, int]
+    by_status: dict[IncidentStatus, int]  # todos os incidentes
+    active_by_severity: dict[Severity, int]  # só os que ainda não estão closed
+    active_by_priority: dict[Priority, int]
 
 
 class AssetStats(BaseModel):
