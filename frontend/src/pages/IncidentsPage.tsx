@@ -76,6 +76,7 @@ export default function IncidentsPage() {
     <>
       <div className="page-header">
         <h1>Incidents</h1>
+        <Link to="/incidents/new" className="btn btn--primary">New incident</Link>
       </div>
 
       <form className="filters" onSubmit={submitSearch}>
